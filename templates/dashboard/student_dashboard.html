@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - AI Student Assistant{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- WELCOME & HERO BANNER -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-xl shadow-primary-950/20 border border-indigo-800/40">
+        <!-- Glow Orbs -->
+        <div class="absolute -right-10 -top-10 w-72 h-72 bg-primary-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-1/3 -bottom-10 w-60 h-60 bg-violet-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-medium text-primary-200 border border-white/10 mb-3">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>Academic Term 2026-2027 • Semester {{ user.student_profile.semester|default:5 }}</span>
+                </div>
+                <h1 class="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl tracking-tight text-white">
+                    Welcome back, {{ user.first_name|default:user.username }}! 👋
+                </h1>
+                <p class="mt-2 text-sm sm:text-base text-primary-100/80 max-w-xl">
+                    You have <span class="font-semibold text-white">{{ pending_tasks_count }} pending tasks</span> and <span class="font-semibold text-white">{{ upcoming_exams|length }} upcoming exams</span>. Your AI Academic Assistant is ready to help you prepare.
+                </p>
+            </div>
+
+            <!-- Hero Action Buttons -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="openQuickLogModal()" class="inline-flex items-center px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition transform active:scale-95">
+                    <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i>
+                    Log Study Hours
+                </button>
+                <a href="{% url 'ai_tutor:workspace' %}" class="inline-flex items-center px-5 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-white text-xs font-semibold shadow-lg shadow-primary-500/30 transition transform active:scale-95">
+                    <i data-lucide="bot" class="w-4 h-4 mr-1.5"></i>
+                    Ask AI Tutor
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4 KEY KPI STAT CARDS -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <!-- Card 1: Total Study Hours -->
+        <div class="bg-white dark:bg-darkCard rounded-2xl p-5 border border-slate-200/80 dark:border-darkBorder shadow-sm relative overflow-hidden group hover:shadow-md transition">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Study Time</span>
+                <div class="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-baseline space-x-2">
+                <span class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white">{{ total_study_hours }}</span>
+                <span class="text-xs font-medium text-slate-400">hours</span>
+            </div>
+            <div class="mt-3 flex items-center text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                <i data-lucide="trending-up" class="w-3.5 h-3.5 mr-1"></i>
+                <span>{{ weekly_study_hours }}h logged this week</span>
+            </div>
+        </div>
+
+        <!-- Card 2: Study Streak -->
+        <div class="bg-white dark:bg-darkCard rounded-2xl p-5 border border-slate-200/80 dark:border-darkBorder shadow-sm relative overflow-hidden group hover:shadow-md transition">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Learning Streak</span>
+                <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center">
+                    <i data-lucide="flame" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-baseline space-x-2">
+                <span class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white">{{ streak }}</span>
+                <span class="text-xs font-medium text-slate-400">day{% if streak != 1 %}s{% endif %}</span>
+            </div>
+            <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                {% if streak > 0 %}
+                    🔥 Streak active! Keep learning today.
+                {% else %}
+                    Log 25 mins today to start your streak!
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Card 3: Task Completion -->
+        <div class="bg-white dark:bg-darkCard rounded-2xl p-5 border border-slate-200/80 dark:border-darkBorder shadow-sm relative overflow-hidden group hover:shadow-md transition">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tasks Completed</span>
+                <div class="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-baseline space-x-2">
+                <span class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white">{{ completed_tasks_count }}</span>
+                <span class="text-xs font-medium text-slate-400">/ {{ total_tasks_count }}</span>
+            </div>
+            <div class="mt-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-violet-500 h-1.5 rounded-full" style="width: {{ task_completion_rate }}%"></div>
+            </div>
+            <div class="mt-1 text-[11px] text-right text-slate-400">{{ task_completion_rate }}% completed</div>
+        </div>
+
+        <!-- Card 4: Attendance Status -->
+        <div class="bg-white dark:bg-darkCard rounded-2xl p-5 border border-slate-200/80 dark:border-darkBorder shadow-sm relative overflow-hidden group hover:shadow-md transition">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Overall Attendance</span>
+                <div class="w-10 h-10 rounded-xl {% if attendance.overall_percentage >= attendance.target_percentage %}bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400{% else %}bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400{% endif %} flex items-center justify-center">
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-baseline space-x-2">
+                <span class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white">{{ attendance.overall_percentage }}%</span>
+                <span class="text-xs font-medium text-slate-400">({{ attendance.present_classes }}/{{ attendance.total_classes }})</span>
+            </div>
+            <div class="mt-3 text-xs font-medium {% if attendance.overall_percentage >= attendance.target_percentage %}text-emerald-600 dark:text-emerald-400{% else %}text-rose-600 dark:text-rose-400{% endif %}">
+                {% if attendance.overall_percentage >= attendance.target_percentage %}
+                    ✓ Above target ({{ attendance.target_percentage }}%)
+                {% else %}
+                    ⚠️ Need {{ attendance.classes_needed }} classes for {{ attendance.target_percentage }}%
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- AI RECOMMENDATIONS SECTION (if available) -->
+    {% if ai_recommendations %}
+    <div class="bg-gradient-to-r from-violet-600/10 via-primary-600/10 to-transparent p-6 rounded-3xl border border-violet-200 dark:border-violet-900/50">
+        <div class="flex items-center space-x-2 text-violet-700 dark:text-violet-300 font-heading font-bold text-sm mb-4">
+            <i data-lucide="sparkles" class="w-4 h-4 text-violet-500"></i>
+            <span>AI Academic Tutor Recommendations</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for rec in ai_recommendations %}
+            <div id="rec-card-{{ rec.id }}" class="bg-white dark:bg-darkCard p-4 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full {% if rec.priority == 'HIGH' %}bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400{% elif rec.priority == 'MEDIUM' %}bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400{% else %}bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400{% endif %}">
+                            {{ rec.priority }}
+                        </span>
+                        <button onclick="dismissRecommendation({{ rec.id }})" class="text-slate-400 hover:text-slate-600 dark:hover:text-white" title="Dismiss">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <h4 class="font-heading font-bold text-xs text-slate-900 dark:text-white">{{ rec.title }}</h4>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-3">{{ rec.content }}</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-darkBorder flex items-center justify-between">
+                    <a href="{{ rec.action_url }}" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline inline-flex items-center">
+                        {{ rec.action_label }}
+                        <i data-lucide="arrow-right" class="w-3 h-3 ml-1"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 2 COLUMN WORKSPACE LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- LEFT COLUMN (2 Cols): Weekly Chart & Today's Schedule -->
+        <div class="lg:col-span-2 space-y-8">
+
+            <!-- Study Analytics Chart -->
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder gap-2">
+                    <div>
+                        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">Weekly Study Activity</h3>
+                        <p class="text-xs text-slate-400">Daily study hours logged across the past 7 days</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400">
+                            Total: {{ weekly_study_hours }} Hours
+                        </span>
+                    </div>
+                </div>
+                <div class="mt-6 h-64 w-full">
+                    <canvas id="weeklyStudyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Today's Schedule & Actionable Tasks -->
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder">
+                    <div>
+                        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">Today's Focus & Tasks</h3>
+                        <p class="text-xs text-slate-400">Check off items as you complete your study plan</p>
+                    </div>
+                    <span class="text-xs font-medium text-slate-500">{{ todays_tasks|length }} active</span>
+                </div>
+
+                <div class="mt-4 divide-y divide-slate-100 dark:divide-darkBorder">
+                    {% if todays_tasks %}
+                        {% for task in todays_tasks %}
+                        <div class="py-3.5 flex items-center justify-between group">
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <input type="checkbox" id="task-chk-{{ task.id }}" {% if task.is_completed %}checked{% endif %} onchange="toggleTask({{ task.id }})" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500 dark:bg-slate-700 dark:border-slate-600 cursor-pointer">
+                                <div class="min-w-0">
+                                    <label for="task-chk-{{ task.id }}" class="text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-200 cursor-pointer group-hover:text-primary-600 transition {% if task.is_completed %}line-through opacity-50{% endif %}">
+                                        {{ task.title }}
+                                    </label>
+                                    <div class="flex items-center space-x-2 mt-0.5">
+                                        {% if task.subject %}
+                                        <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ task.subject.name }}</span>
+                                        <span class="text-slate-300 dark:text-slate-600">•</span>
+                                        {% endif %}
+                                        {% if task.due_date %}
+                                        <span class="text-[10px] text-slate-400">Due: {{ task.due_date|date:"M d" }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 {% if task.priority == 'HIGH' %}bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400{% elif task.priority == 'MEDIUM' %}bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400{% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400{% endif %}">
+                                {{ task.priority }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-8 text-center text-slate-400 text-xs">
+                            <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-emerald-500 opacity-60"></i>
+                            All caught up for today! Add new tasks in the Study Planner.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Subject-wise Attendance Breakdown -->
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder">
+                    <div>
+                        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">Subject Attendance Ledger</h3>
+                        <p class="text-xs text-slate-400">Real-time attendance tracking per enrolled subject</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 space-y-4">
+                    {% if attendance.subjects_data %}
+                        {% for item in attendance.subjects_data %}
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-darkBorder flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2.5 h-2.5 rounded-full" style="background-color: {{ item.subject.color|default:'#6366F1' }}"></div>
+                                    <h5 class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ item.subject.name }}</h5>
+                                    {% if item.subject.code %}
+                                    <span class="text-[10px] text-slate-400">({{ item.subject.code }})</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-1 text-[11px] text-slate-500">
+                                    Attended {{ item.present }} of {{ item.total }} sessions
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-4">
+                                <div class="w-28 sm:w-36 bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div class="h-2 rounded-full {% if item.is_low %}bg-rose-500{% else %}bg-emerald-500{% endif %}" style="width: {{ item.percentage }}%"></div>
+                                </div>
+                                <span class="text-xs font-bold w-12 text-right {% if item.is_low %}text-rose-600 dark:text-rose-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">
+                                    {{ item.percentage }}%
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-6 text-center text-slate-400 text-xs">
+                            No attendance records logged yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN (1 Col): Upcoming Exams & Recent Activity -->
+        <div class="space-y-8">
+
+            <!-- Upcoming Examinations Card -->
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder">
+                    <div>
+                        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">Upcoming Exams</h3>
+                        <p class="text-xs text-slate-400">Key assessments & deadlines</p>
+                    </div>
+                    <i data-lucide="calendar-alert" class="w-4 h-4 text-primary-500"></i>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                    {% if upcoming_exams %}
+                        {% for exam in upcoming_exams %}
+                        <div class="p-3.5 rounded-2xl border border-slate-100 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/60 dark:hover:bg-slate-800 transition">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ exam.title }}</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {% if exam.days_left <= 3 %}bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400{% else %}bg-primary-100 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400{% endif %}">
+                                    {% if exam.days_left == 0 %}Today{% elif exam.days_left == 1 %}Tomorrow{% else %}In {{ exam.days_left }} days{% endif %}
+                                </span>
+                            </div>
+                            <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                                <span>{{ exam.subject.name }}</span>
+                                <span>{{ exam.exam_date|date:"D, M d" }}</span>
+                            </div>
+                            {% if exam.venue %}
+                            <div class="mt-1 text-[10px] text-slate-400 flex items-center">
+                                <i data-lucide="map-pin" class="w-3 h-3 mr-1 text-slate-400"></i>
+                                {{ exam.venue }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-6 text-center text-slate-400 text-xs">
+                            No upcoming exams scheduled.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity Feed -->
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder">
+                    <div>
+                        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">Recent Activities</h3>
+                        <p class="text-xs text-slate-400">Your study timeline</p>
+                    </div>
+                    <i data-lucide="activity" class="w-4 h-4 text-slate-400"></i>
+                </div>
+
+                <div class="mt-4 space-y-4">
+                    {% if recent_activities %}
+                        {% for act in recent_activities %}
+                        <div class="flex items-start space-x-3 text-xs">
+                            <div class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                                <i data-lucide="{{ act.icon|default:'check' }}" class="w-3.5 h-3.5"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium text-slate-800 dark:text-slate-200 leading-snug">{{ act.title }}</p>
+                                <span class="text-[10px] text-slate-400">{{ act.created_at|timesince }} ago</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="py-6 text-center text-slate-400 text-xs">
+                            No activities logged yet today.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Academic Links -->
+            <div class="bg-gradient-to-br from-indigo-50 to-primary-50 dark:from-darkCard dark:to-slate-800 p-6 rounded-3xl border border-indigo-100 dark:border-darkBorder">
+                <h4 class="font-heading font-bold text-xs uppercase tracking-wider text-primary-700 dark:text-primary-300 mb-3">Next Phase Roadmap</h4>
+                <ul class="space-y-2 text-xs text-slate-600 dark:text-slate-400">
+                    <li class="flex items-center">
+                        <i data-lucide="check-circle" class="w-3.5 h-3.5 mr-2 text-emerald-500"></i>
+                        Phase 1: Auth & Student Dashboard
+                    </li>
+                    <li class="flex items-center font-medium text-primary-600 dark:text-primary-400">
+                        <i data-lucide="arrow-right" class="w-3.5 h-3.5 mr-2"></i>
+                        Phase 2: AI Study Tutor Chatbot
+                    </li>
+                    <li class="flex items-center opacity-60">
+                        <i data-lucide="circle" class="w-3.5 h-3.5 mr-2"></i>
+                        Phase 3: AI Document Chat / RAG
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Initialize Chart.js for Weekly Study Activity
+    const ctx = document.getElementById('weeklyStudyChart').getContext('2d');
+    const labels = {{ chart_labels_json|safe }};
+    const dataValues = {{ chart_hours_json|safe }};
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Study Hours',
+                data: dataValues,
+                borderColor: '#6366f1',
+                borderWidth: 3,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#cbd5e1',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + ' hrs';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                }
+            }
+        }
+    });
+
+    // Toggle Task Status via AJAX
+    function toggleTask(taskId) {
+        fetch(`/tasks/${taskId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const label = document.querySelector(`label[for="task-chk-${taskId}"]`);
+                if (label) {
+                    if (data.is_completed) {
+                        label.classList.add('line-through', 'opacity-50');
+                    } else {
+                        label.classList.remove('line-through', 'opacity-50');
+                    }
+                }
+            }
+        });
+    }
+
+    // Dismiss AI Recommendation via AJAX
+    function dismissRecommendation(recId) {
+        fetch(`/recommendations/${recId}/dismiss/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const card = document.getElementById(`rec-card-${recId}`);
+                if (card) {
+                    card.classList.add('opacity-0', 'transition-opacity');
+                    setTimeout(() => card.remove(), 250);
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Administrator Control Center - AI Student Assistant{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-8 text-white border border-slate-800 shadow-xl">
+        <div class="flex items-center space-x-2 text-primary-400 text-xs font-semibold uppercase tracking-wider mb-2">
+            <i data-lucide="shield" class="w-4 h-4"></i>
+            <span>Platform Governance</span>
+        </div>
+        <h1 class="font-heading font-extrabold text-3xl">Administrator Control Center</h1>
+        <p class="mt-2 text-slate-300 text-sm max-w-xl">
+            Monitor system health, manage academic accounts, oversee courses, and audit platform activity.
+        </p>
+    </div>
+
+    <!-- Metrics -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white dark:bg-darkCard p-5 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Platform Users</span>
+            <p class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white mt-2">{{ total_users }}</p>
+            <span class="text-xs text-primary-600 mt-2 block font-medium">{{ students_count }} students • {{ teachers_count }} teachers</span>
+        </div>
+        <div class="bg-white dark:bg-darkCard p-5 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Study Sessions</span>
+            <p class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white mt-2">{{ total_sessions }}</p>
+            <span class="text-xs text-emerald-600 mt-2 block font-medium">Logged across semesters</span>
+        </div>
+        <div class="bg-white dark:bg-darkCard p-5 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Active Study Tasks</span>
+            <p class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white mt-2">{{ total_tasks }}</p>
+            <span class="text-xs text-slate-400 mt-2 block">Created by learners</span>
+        </div>
+        <div class="bg-white dark:bg-darkCard p-5 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Django Admin</span>
+            <a href="/admin/" target="_blank" class="inline-flex items-center text-xs font-bold text-primary-600 dark:text-primary-400 hover:underline mt-4">
+                Open Django Admin Panel
+                <i data-lucide="external-link" class="w-3.5 h-3.5 ml-1"></i>
+            </a>
+            <span class="text-[11px] text-slate-400 mt-1 block">Full ORM and user management</span>
+        </div>
+    </div>
+
+    <!-- User Table -->
+    <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm">
+        <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white mb-4">Recently Registered Users</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="border-b border-slate-100 dark:border-darkBorder text-slate-400 uppercase">
+                    <tr>
+                        <th class="py-3 px-4">User</th>
+                        <th class="py-3 px-4">Role</th>
+                        <th class="py-3 px-4">Email</th>
+                        <th class="py-3 px-4">Date Joined</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-darkBorder">
+                    {% for u in recent_users %}
+                    <tr>
+                        <td class="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">{{ u.username }}</td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase {% if u.role == 'ADMIN' %}bg-rose-100 text-rose-600{% elif u.role == 'TEACHER' %}bg-teal-100 text-teal-600{% else %}bg-primary-100 text-primary-600{% endif %}">
+                                {{ u.get_role_display }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-slate-500">{{ u.email }}</td>
+                        <td class="py-3.5 px-4 text-slate-400">{{ u.date_joined|date:"M d, Y" }}</td>
+                        <td class="py-3.5 px-4 text-right">
+                            <a href="/admin/accounts/user/{{ u.id }}/change/" target="_blank" class="text-primary-600 hover:underline">Edit</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

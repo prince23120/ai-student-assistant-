@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}AI Study Tutor - Intelligent Academic Assistant{% endblock %}
+
+{% block extra_head %}
+<!-- Markdown Parser & Code Syntax Highlighting -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<style>
+    /* Markdown Typography within Chat */
+    .prose-academic {
+        font-size: 0.9375rem;
+        line-height: 1.625;
+    }
+    .prose-academic p {
+        margin-bottom: 0.75rem;
+    }
+    .prose-academic h1, .prose-academic h2, .prose-academic h3, .prose-academic h4 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 700;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+        color: inherit;
+    }
+    .prose-academic h3 { font-size: 1.125rem; }
+    .prose-academic h4 { font-size: 1rem; }
+    .prose-academic ul, .prose-academic ol {
+        margin-left: 1.25rem;
+        margin-bottom: 0.75rem;
+        list-style-type: disc;
+    }
+    .prose-academic ol {
+        list-style-type: decimal;
+    }
+    .prose-academic li {
+        margin-bottom: 0.25rem;
+    }
+    .prose-academic pre {
+        background: #18181b !important;
+        border-radius: 0.875rem;
+        padding: 1rem;
+        overflow-x: auto;
+        margin-top: 0.75rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #27272a;
+    }
+    .prose-academic code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85em;
+    }
+    .prose-academic pre code {
+        background: transparent !important;
+        padding: 0;
+        color: #f4f4f5;
+    }
+    .prose-academic blockquote {
+        border-left: 3px solid #6366f1;
+        padding-left: 0.875rem;
+        margin: 0.75rem 0;
+        font-style: italic;
+        color: #64748b;
+    }
+    .dark .prose-academic blockquote {
+        color: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-7.5rem)] flex flex-col md:flex-row gap-4 overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4">
+
+    <!-- LEFT DRAWER: CONVERSATION LIST (Collapsible on mobile) -->
+    <aside id="chatDrawer" class="w-full md:w-80 bg-white dark:bg-darkCard rounded-3xl border border-slate-200/80 dark:border-darkBorder flex flex-col overflow-hidden shrink-0 shadow-sm">
+        <!-- New Chat Button -->
+        <div class="p-4 border-b border-slate-100 dark:border-darkBorder">
+            <form action="{% url 'ai_tutor:create_conversation' %}" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs shadow-md shadow-primary-500/20 transition transform active:scale-98">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>Start New Discussion</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Conversations History List -->
+        <div class="flex-1 overflow-y-auto p-3 space-y-1">
+            <div class="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span>Recent Academic Chats</span>
+                <a href="{% url 'ai_tutor:saved_answers' %}" class="text-primary-600 dark:text-primary-400 hover:underline flex items-center">
+                    <i data-lucide="bookmark" class="w-3 h-3 mr-1"></i> Saved
+                </a>
+            </div>
+
+            {% if conversations %}
+                {% for conv in conversations %}
+                <div class="group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-xs transition {% if active_conversation and active_conversation.id == conv.id %}bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-semibold{% else %}text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60{% endif %}">
+                    <a href="{% url 'ai_tutor:conversation_detail' conv.id %}" class="flex items-center space-x-2.5 min-w-0 flex-1">
+                        <i data-lucide="message-square" class="w-4 h-4 text-slate-400 group-hover:text-primary-500 shrink-0"></i>
+                        <span class="truncate">{{ conv.title }}</span>
+                    </a>
+                    <form action="{% url 'ai_tutor:delete_conversation' conv.id %}" method="POST" onsubmit="return confirm('Delete this conversation?');" class="opacity-0 group-hover:opacity-100 transition shrink-0 ml-1">
+                        {% csrf_token %}
+                        <button type="submit" class="p-1 rounded text-slate-400 hover:text-rose-500" title="Delete">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </form>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="py-12 text-center text-slate-400 text-xs px-4">
+                    <i data-lucide="messages-square" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                    No conversations yet. Start a new session above!
+                </div>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- RIGHT MAIN WORKSPACE: ACTIVE CHAT CONTAINER -->
+    <main class="flex-1 bg-white dark:bg-darkCard rounded-3xl border border-slate-200/80 dark:border-darkBorder flex flex-col overflow-hidden shadow-sm">
+
+        {% if active_conversation %}
+        <!-- CHAT TOPBAR: Title, Mode, Language & Subject Selectors -->
+        <header class="px-5 py-3.5 border-b border-slate-100 dark:border-darkBorder flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30">
+            <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-950/80 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </div>
+                <div class="min-w-0">
+                    <h2 id="activeChatTitle" class="font-heading font-bold text-sm text-slate-900 dark:text-white truncate">
+                        {{ active_conversation.title }}
+                    </h2>
+                    <p class="text-[11px] text-slate-400">
+                        {{ active_conversation.messages.count }} messages • Academic AI Assistant
+                    </p>
+                </div>
+            </div>
+
+            <!-- Configuration Selectors (Synced with session) -->
+            <div class="flex items-center space-x-2">
+                <!-- Mode Selector -->
+                <select id="chatModeSelect" class="text-xs py-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-primary-500">
+                    {% for code, label in modes %}
+                        <option value="{{ code }}" {% if active_conversation.mode == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Language Selector -->
+                <select id="chatLangSelect" class="text-xs py-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-primary-500">
+                    {% for code, label in languages %}
+                        <option value="{{ code }}" {% if active_conversation.language == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+
+                <!-- Subject Selector (Optional) -->
+                <select id="chatSubjectSelect" class="text-xs py-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-primary-500 hidden sm:block">
+                    <option value="">General Academic</option>
+                    {% for sub in subjects %}
+                        <option value="{{ sub.id }}" {% if active_conversation.subject and active_conversation.subject.id == sub.id %}selected{% endif %}>{{ sub.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </header>
+
+        <!-- MESSAGES FEED -->
+        <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+            {% if not chat_messages %}
+            <!-- Welcome Empty State with Interactive Prompts -->
+            <div id="emptyState" class="max-w-2xl mx-auto py-10 text-center">
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-violet-600 to-primary-500 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary-500/25">
+                    <i data-lucide="sparkles" class="w-8 h-8"></i>
+                </div>
+                <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 dark:text-white">
+                    What concept would you like to master today?
+                </h3>
+                <p class="mt-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    I can explain complex topics step-by-step, generate 5-mark and 10-mark exam answers, debug code, or teach you in Hindi and English.
+                </p>
+
+                <!-- Quick Prompt Chips -->
+                <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                    <button onclick="setPromptAndSend('Explain Dijkstra\'s Algorithm with step-by-step example and time complexity', 'TUTOR', 'en')" class="p-4 rounded-2xl border border-slate-200 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/50 hover:border-primary-500 dark:hover:border-primary-500 transition group">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white group-hover:text-primary-600">
+                            <i data-lucide="network" class="w-4 h-4 text-primary-500"></i>
+                            <span>Algorithms & Graphs</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Dijkstra's Shortest Path, Min-Heap, & Big-O</p>
+                    </button>
+
+                    <button onclick="setPromptAndSend('Generate a 10-mark university exam answer for Virtual Memory & Paging in Operating Systems', 'EXAM_10_MARKS', 'en')" class="p-4 rounded-2xl border border-slate-200 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/50 hover:border-primary-500 dark:hover:border-primary-500 transition group">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white group-hover:text-primary-600">
+                            <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i>
+                            <span>10-Mark Exam Answer</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Virtual Memory, Page Tables & TLB hit ratios</p>
+                    </button>
+
+                    <button onclick="setPromptAndSend('Debug this Python Binary Search implementation and explain time/space complexity:\n\ndef binary_search(arr, target):\n    low = 0\n    high = len(arr)\n    while low < high:\n        mid = (low + high) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            low = mid\n        else:\n            high = mid\n    return -1', 'CODE_DEBUG', 'en')" class="p-4 rounded-2xl border border-slate-200 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/50 hover:border-primary-500 dark:hover:border-primary-500 transition group">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white group-hover:text-primary-600">
+                            <i data-lucide="bug" class="w-4 h-4 text-rose-500"></i>
+                            <span>Code Debugger & Big-O</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Find off-by-one errors and infinite loop bugs</p>
+                    </button>
+
+                    <button onclick="setPromptAndSend('Polymorphism aur Encapsulation ko simple Hinglish me samjhao real-life example ke sath', 'SIMPLIFY', 'hinglish')" class="p-4 rounded-2xl border border-slate-200 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/50 hover:border-primary-500 dark:hover:border-primary-500 transition group">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-slate-900 dark:text-white group-hover:text-primary-600">
+                            <i data-lucide="languages" class="w-4 h-4 text-amber-500"></i>
+                            <span>Hinglish Explanation 🇮🇳</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">OOP concepts in conversational Indian style</p>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Render Existing Messages -->
+            {% for msg in chat_messages %}
+                {% if msg.role == 'user' %}
+                <!-- Student Message -->
+                <div class="flex justify-end items-start space-x-3">
+                    <div class="max-w-2xl bg-primary-600 text-white rounded-3xl rounded-tr-md p-4 shadow-sm text-sm whitespace-pre-wrap leading-relaxed">
+                        {{ msg.content }}
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+                </div>
+                {% else %}
+                <!-- AI Tutor Message -->
+                <div class="flex justify-start items-start space-x-3 group" id="msg-box-{{ msg.id }}">
+                    <div class="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20 shrink-0 mt-1">
+                        <i data-lucide="bot" class="w-4 h-4"></i>
+                    </div>
+                    <div class="max-w-3xl flex-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-darkBorder rounded-3xl rounded-tl-md p-5 text-slate-800 dark:text-slate-200 shadow-sm relative">
+                        <div class="prose-academic markdown-content">
+                            <textarea class="raw-markdown hidden">{{ msg.content }}</textarea>
+                            <div class="rendered-markdown"></div>
+                        </div>
+
+                        <!-- Message Actions Bar -->
+                        <div class="mt-4 pt-3 border-t border-slate-200/60 dark:border-darkBorder flex items-center justify-between text-xs text-slate-400">
+                            <span class="text-[10px]">{{ msg.created_at|time:"H:i" }}</span>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="copyMessage(this)" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center space-x-1" title="Copy Answer">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                    <span class="text-[11px]">Copy</span>
+                                </button>
+                                <button onclick="toggleSaveMessage({{ msg.id }}, this)" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center space-x-1 {% if msg.is_saved %}text-primary-600 dark:text-primary-400 font-bold{% endif %}" title="Save / Bookmark">
+                                    <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                                    <span class="text-[11px]">{% if msg.is_saved %}Saved{% else %}Save{% endif %}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Streaming / Typing Indicator (Hidden by default) -->
+            <div id="typingIndicator" class="hidden flex justify-start items-start space-x-3">
+                <div class="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 mt-1">
+                    <i data-lucide="bot" class="w-4 h-4"></i>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-darkBorder rounded-2xl p-4 flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-primary-500 animate-bounce"></span>
+                    <span class="w-2 h-2 rounded-full bg-primary-500 animate-bounce [animation-delay:0.2s]"></span>
+                    <span class="w-2 h-2 rounded-full bg-primary-500 animate-bounce [animation-delay:0.4s]"></span>
+                    <span class="text-xs text-slate-400 ml-2">AI Tutor is composing explanation...</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- INPUT BOX -->
+        <footer class="p-4 border-t border-slate-100 dark:border-darkBorder bg-white dark:bg-darkCard">
+            <form id="chatForm" onsubmit="handleChatSubmit(event)" class="relative">
+                <textarea
+                    id="messageInput"
+                    rows="2"
+                    placeholder="Ask any academic or coding question... (Shift+Enter for new line)"
+                    class="w-full pl-4 pr-24 py-3 rounded-2xl border border-slate-200 dark:border-darkBorder bg-slate-50 dark:bg-slate-800/60 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm resize-none"
+                    required
+                ></textarea>
+
+                <div class="absolute right-2.5 bottom-2.5 flex items-center space-x-1.5">
+                    <button
+                        type="submit"
+                        id="sendBtn"
+                        class="p-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-500/25 transition disabled:opacity-50 transform active:scale-95"
+                    >
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </form>
+            <div class="mt-2 text-center text-[10px] text-slate-400 flex items-center justify-center space-x-2">
+                <span>AI Tutor supports English, Hindi & Hinglish with 5/10-mark exam formatting.</span>
+            </div>
+        </footer>
+
+        {% else %}
+        <!-- No Active Conversation Fallback -->
+        <div class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div class="w-16 h-16 rounded-3xl bg-primary-100 dark:bg-primary-950 text-primary-600 flex items-center justify-center mb-4">
+                <i data-lucide="bot" class="w-8 h-8"></i>
+            </div>
+            <h3 class="font-heading font-bold text-xl text-slate-900 dark:text-white">Start your first discussion</h3>
+            <p class="text-xs text-slate-400 max-w-sm mt-1 mb-6">Create a new academic study session to ask questions, solve programming problems, and prepare for exams.</p>
+            <form action="{% url 'ai_tutor:create_conversation' %}" method="POST">
+                {% csrf_token %}
+                <button type="submit" class="px-6 py-3 rounded-2xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs shadow-lg shadow-primary-500/25 transition">
+                    Create New Session
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+    </main>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Initialize markdown rendering on initial load
+    function renderMarkdownBlocks() {
+        document.querySelectorAll('.markdown-content').forEach(el => {
+            const rawEl = el.querySelector('.raw-markdown');
+            const target = el.querySelector('.rendered-markdown') || el;
+            if (rawEl) {
+                target.innerHTML = marked.parse(rawEl.value);
+            }
+        });
+        hljs.highlightAll();
+        lucide.createIcons();
+    }
+    renderMarkdownBlocks();
+
+    // Auto-scroll messages to bottom
+    const messagesContainer = document.getElementById('messagesContainer');
+    function scrollToBottom() {
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+    scrollToBottom();
+
+    // Textarea Enter to submit (Shift+Enter for newline)
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleChatSubmit(e);
+            }
+        });
+    }
+
+    // Set prompt from chips and send immediately
+    function setPromptAndSend(text, mode, lang) {
+        if (messageInput) {
+            messageInput.value = text;
+            if (mode) document.getElementById('chatModeSelect').value = mode;
+            if (lang) document.getElementById('chatLangSelect').value = lang;
+            handleChatSubmit(new Event('submit'));
+        }
+    }
+
+    // Handle AJAX Message Submission
+    function handleChatSubmit(e) {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) emptyState.remove();
+
+        const mode = document.getElementById('chatModeSelect').value;
+        const language = document.getElementById('chatLangSelect').value;
+        const subjectId = document.getElementById('chatSubjectSelect') ? document.getElementById('chatSubjectSelect').value : null;
+        const convId = {% if active_conversation %}{{ active_conversation.id }}{% else %}null{% endif %};
+
+        if (!convId) return;
+
+        // 1. Append Student message bubble immediately
+        appendStudentMessage(text);
+        messageInput.value = '';
+        messageInput.disabled = true;
+        document.getElementById('sendBtn').disabled = true;
+
+        // 2. Show typing indicator
+        const typingIndicator = document.getElementById('typingIndicator');
+        typingIndicator.classList.remove('hidden');
+        scrollToBottom();
+
+        // 3. Post to API
+        fetch(`/tutor/c/${convId}/send/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: text,
+                mode: mode,
+                language: language,
+                subject_id: subjectId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            typingIndicator.classList.add('hidden');
+            messageInput.disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            messageInput.focus();
+
+            if (data.status === 'ok') {
+                appendAIMessage(data.response, data.assistant_message_id);
+                // Update title if changed
+                if (data.conversation_title) {
+                    document.getElementById('activeChatTitle').innerText = data.conversation_title;
+                }
+            } else {
+                alert("Error generating response: " + data.message);
+            }
+        })
+        .catch(err => {
+            typingIndicator.classList.add('hidden');
+            messageInput.disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            console.error(err);
+            alert("Connection error. Please try again.");
+        });
+    }
+
+    // Append student bubble to UI
+    function appendStudentMessage(text) {
+        const div = document.createElement('div');
+        div.className = "flex justify-end items-start space-x-3";
+        div.innerHTML = `
+            <div class="max-w-2xl bg-primary-600 text-white rounded-3xl rounded-tr-md p-4 shadow-sm text-sm whitespace-pre-wrap leading-relaxed">
+                ${escapeHTML(text)}
+            </div>
+            <div class="w-8 h-8 rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-1">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+        `;
+        const typingIndicator = document.getElementById('typingIndicator');
+        messagesContainer.insertBefore(div, typingIndicator);
+        scrollToBottom();
+    }
+
+    // Append AI bubble to UI
+    function appendAIMessage(markdownText, messageId) {
+        const div = document.createElement('div');
+        div.className = "flex justify-start items-start space-x-3 group";
+        div.id = `msg-box-${messageId}`;
+        const parsedHtml = marked.parse(markdownText);
+
+        div.innerHTML = `
+            <div class="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-md shadow-violet-500/20 shrink-0 mt-1">
+                <i data-lucide="bot" class="w-4 h-4"></i>
+            </div>
+            <div class="max-w-3xl flex-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-darkBorder rounded-3xl rounded-tl-md p-5 text-slate-800 dark:text-slate-200 shadow-sm relative">
+                <div class="prose-academic">
+                    ${parsedHtml}
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-200/60 dark:border-darkBorder flex items-center justify-between text-xs text-slate-400">
+                    <span class="text-[10px]">Just now</span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="copyMessage(this)" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center space-x-1" title="Copy Answer">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span class="text-[11px]">Copy</span>
+                        </button>
+                        <button onclick="toggleSaveMessage(${messageId}, this)" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center space-x-1" title="Save / Bookmark">
+                            <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                            <span class="text-[11px]">Save</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        const typingIndicator = document.getElementById('typingIndicator');
+        messagesContainer.insertBefore(div, typingIndicator);
+        hljs.highlightAll();
+        lucide.createIcons();
+        scrollToBottom();
+    }
+
+    // Copy message to clipboard
+    function copyMessage(btn) {
+        const prose = btn.closest('.relative').querySelector('.prose-academic');
+        if (prose) {
+            navigator.clipboard.writeText(prose.innerText).then(() => {
+                const label = btn.querySelector('span');
+                const prev = label.innerText;
+                label.innerText = 'Copied!';
+                setTimeout(() => { label.innerText = prev; }, 1800);
+            });
+        }
+    }
+
+    // Toggle Save / Bookmark Message
+    function toggleSaveMessage(msgId, btn) {
+        fetch(`/tutor/messages/${msgId}/save/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                const label = btn.querySelector('span');
+                if (data.is_saved) {
+                    btn.classList.add('text-primary-600', 'dark:text-primary-400', 'font-bold');
+                    label.innerText = 'Saved';
+                } else {
+                    btn.classList.remove('text-primary-600', 'dark:text-primary-400', 'font-bold');
+                    label.innerText = 'Save';
+                }
+            }
+        });
+    }
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
+</script>
+{% endblock %}

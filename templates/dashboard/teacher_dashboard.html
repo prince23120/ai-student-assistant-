@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty & Teacher Portal - AI Student Assistant{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="rounded-3xl bg-gradient-to-r from-teal-900 to-slate-900 p-8 text-white border border-teal-800/40 shadow-xl">
+        <h1 class="font-heading font-extrabold text-3xl">Faculty Portal 🎓</h1>
+        <p class="mt-2 text-teal-100/80 text-sm max-w-xl">
+            Welcome, Professor {{ user.last_name|default:user.username }}. Manage your courses, track student attendance, and review assignments.
+        </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white dark:bg-darkCard p-6 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Enrolled Students</span>
+            <p class="font-heading font-extrabold text-3xl text-slate-900 dark:text-white mt-2">{{ students_count }}</p>
+            <span class="text-xs text-teal-600 mt-2 block font-medium">Across active sections</span>
+        </div>
+        <div class="bg-white dark:bg-darkCard p-6 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Department</span>
+            <p class="font-heading font-bold text-xl text-slate-900 dark:text-white mt-2">{{ user.teacher_profile.department|default:"Computer Science & Eng" }}</p>
+            <span class="text-xs text-slate-400 mt-2 block">{{ user.teacher_profile.designation|default:"Faculty" }}</span>
+        </div>
+        <div class="bg-white dark:bg-darkCard p-6 rounded-2xl border border-slate-200/80 dark:border-darkBorder shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Office Location</span>
+            <p class="font-heading font-bold text-xl text-slate-900 dark:text-white mt-2">{{ user.teacher_profile.office_location|default:"Room 304, Block B" }}</p>
+            <span class="text-xs text-slate-400 mt-2 block">Student Consultation Hours</span>
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-darkCard p-8 rounded-3xl border border-slate-200/80 dark:border-darkBorder text-center">
+        <div class="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="sparkles" class="w-7 h-7"></i>
+        </div>
+        <h3 class="font-heading font-bold text-lg text-slate-900 dark:text-white">Phase 10: Teacher Workspace In-Progress</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto mt-2">
+            Detailed class rosters, assignment evaluation, and announcement broadcasts will be fully expanded in Phase 10 as per our development roadmap.
+        </p>
+    </div>
+</div>
+{% endblock %}

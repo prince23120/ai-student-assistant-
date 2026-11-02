@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Study Materials & Document Intelligence - AI Student Assistant{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+    <!-- HERO HEADER -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-rose-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-rose-800/40">
+        <div class="absolute -right-8 -top-8 w-60 h-60 bg-rose-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-medium text-rose-200 border border-white/10 mb-3">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>RAG Document Q&A Engine</span>
+                </div>
+                <h1 class="font-heading font-extrabold text-2xl sm:text-3xl text-white">
+                    AI Chat with PDF & Course Materials
+                </h1>
+                <p class="mt-2 text-sm text-rose-100/80 max-w-xl">
+                    Upload textbooks, lecture slides, and notes. Ask questions with precise page citations, generate chapter summaries, and extract practice MCQs.
+                </p>
+            </div>
+
+            <!-- Upload CTA -->
+            <button onclick="openUploadModal()" class="inline-flex items-center px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 transition transform active:scale-95 self-start md:self-auto">
+                <i data-lucide="upload-cloud" class="w-4 h-4 mr-2"></i>
+                Upload Study Material
+            </button>
+        </div>
+    </div>
+
+    <!-- DOCUMENT GRID -->
+    <div>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-heading font-bold text-base text-slate-900 dark:text-white">
+                Uploaded Materials Library ({{ documents|length }})
+            </h3>
+            <span class="text-xs text-slate-400">Supported: PDF, DOCX, PPTX, TXT (up to 25MB)</span>
+        </div>
+
+        {% if documents %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for doc in documents %}
+            <div class="bg-white dark:bg-darkCard rounded-3xl p-6 border border-slate-200/80 dark:border-darkBorder shadow-sm flex flex-col justify-between hover:shadow-md transition group">
+                <div>
+                    <!-- Header with Icon & Format -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-base {% if doc.file_type == 'pdf' %}bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900{% elif doc.file_type == 'docx' %}bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900{% elif doc.file_type == 'pptx' %}bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900{% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300{% endif %}">
+                            <span class="uppercase tracking-wider text-xs">{{ doc.file_type }}</span>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                            <i data-lucide="check" class="w-3 h-3 mr-1"></i> Indexed
+                        </span>
+                    </div>
+
+                    <!-- Title & Subject -->
+                    <h4 class="font-heading font-bold text-sm text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary-600 transition">
+                        {{ doc.title }}
+                    </h4>
+                    {% if doc.subject %}
+                    <span class="inline-block mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        {{ doc.subject.name }}
+                    </span>
+                    {% endif %}
+
+                    <!-- Metadata -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-darkBorder flex items-center space-x-4 text-xs text-slate-400">
+                        <span class="inline-flex items-center">
+                            <i data-lucide="layers" class="w-3.5 h-3.5 mr-1"></i>
+                            {{ doc.page_count }} {% if doc.file_type == 'pptx' %}Slides{% else %}Pages{% endif %}
+                        </span>
+                        <span class="inline-flex items-center">
+                            <i data-lucide="hard-drive" class="w-3.5 h-3.5 mr-1"></i>
+                            {{ doc.file_size_bytes|filesizeformat }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Action Footer -->
+                <div class="mt-6 pt-4 border-t border-slate-100 dark:border-darkBorder flex items-center justify-between">
+                    <form action="{% url 'ai_tutor:document_delete' doc.id %}" method="POST" onsubmit="return confirm('Delete document and all indexed conversation chunks?');">
+                        {% csrf_token %}
+                        <button type="submit" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 transition" title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+
+                    <a href="{% url 'ai_tutor:document_chat' doc.id %}" class="inline-flex items-center px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold shadow-md shadow-primary-500/20 transition">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5 mr-1.5"></i>
+                        Chat with PDF
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="bg-white dark:bg-darkCard rounded-3xl p-12 text-center border border-slate-200/80 dark:border-darkBorder shadow-sm max-w-xl mx-auto">
+            <div class="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="file-up" class="w-8 h-8"></i>
+            </div>
+            <h3 class="font-heading font-bold text-lg text-slate-900 dark:text-white">No documents uploaded yet</h3>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-6">
+                Upload your course syllabus, lecture notes, textbook chapters, or past question papers to start asking questions with citations.
+            </p>
+            <button onclick="openUploadModal()" class="inline-flex items-center px-6 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-600/20 transition">
+                <i data-lucide="upload" class="w-4 h-4 mr-1.5"></i>
+                Upload First Document
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- UPLOAD MODAL -->
+<div id="uploadModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-darkCard rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-darkBorder animate-in fade-in zoom-in-95 duration-200">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-darkBorder">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                </div>
+                <h3 class="font-heading font-bold text-slate-900 dark:text-white text-base">Upload Study Material</h3>
+            </div>
+            <button onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form action="{% url 'ai_tutor:document_list' %}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Title (Optional)</label>
+                <input type="text" name="title" placeholder="e.g. Operating Systems Chapter 4 - Memory Management" class="form-input-modern text-xs">
+                <span class="text-[10px] text-slate-400 mt-1 block">Leave empty to use original file name.</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Related Subject (Optional)</label>
+                <select name="subject_id" class="form-input-modern text-xs">
+                    <option value="">-- General Study Material --</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}">{{ sub.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Select File</label>
+                <div class="p-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/50 dark:hover:bg-slate-800 transition">
+                    <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400 mb-2"></i>
+                    <input type="file" name="document_file" id="fileUploadInput" accept=".pdf,.docx,.pptx,.ppt,.txt,.md" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-600 hover:file:bg-primary-100">
+                    <p class="text-[11px] text-slate-400 mt-2">PDF, Word (.docx), PowerPoint (.pptx), or Text up to 25MB</p>
+                </div>
+            </div>
+
+            <div class="pt-4 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeUploadModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Cancel</button>
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-600/20 transition">Process & Index Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openUploadModal() {
+        document.getElementById('uploadModal').classList.remove('hidden');
+    }
+    function closeUploadModal() {
+        document.getElementById('uploadModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}
